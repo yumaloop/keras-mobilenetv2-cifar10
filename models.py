@@ -4,8 +4,6 @@ import keras
 from keras.models import Sequential
 from keras.layers import Input, Dense, Conv2D, DepthwiseConv2D, Dropout, Flatten, MaxPooling2D, GlobalAveragePooling2D, Activation, ReLU, Add
 from keras.layers.normalization import BatchNormalization
-from qctools.matrix_tools import QCMatrix, QCMatrixWithSpatialCoupling
-from qctools.mask_layer import MaskConv2D, MaskDense
 
 class MobileNetV2():
     

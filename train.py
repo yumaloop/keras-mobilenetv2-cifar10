@@ -4,16 +4,12 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import shutil
-import json
 import argparse
 import numpy as np
 import tensorflow as tf
-from keras.utils import np_utils
-from keras.optimizers import SGD, Adam
-from keras.callbacks import Callback, ModelCheckpoint, CSVLogger
+import keras
+from keras.callbacks import ModelCheckpoint, CSVLogger, LearningRateScheduler
 from datetime import datetime
-from pprint import pprint
-from qctools.mask_layer import MaskExponentialAlphaScheduler, MaskCustomCSVLogger  #  CustomCallback class
 from models import MobileNetV2
 from load_data import load_cifar10
 
@@ -22,6 +18,8 @@ from load_data import load_cifar10
 def main():
     input_shape=(32, 32, 3)
     num_classes=10
+    batch_size=128
+    epochs=30
     
     # Load cifar10 data
     (X_train, y_train),(X_test, y_test) = load_cifar10()
@@ -36,7 +34,6 @@ def main():
         os.makedirs(LOG_DIR)
 
     shutil.copyfile(os.path.join(os.getcwd(), 'train.py'), os.path.join(LOG_DIR, 'train.py'))
-    shutil.copyfile(os.path.join(os.getcwd(), 'run.sh'), os.path.join(LOG_DIR, 'run.sh'))
     shutil.copyfile(os.path.join(os.getcwd(), 'models.py'), os.path.join(LOG_DIR, 'models.py'))
 
     MODEL_WEIGHT_CKP_PATH=os.path.join(LOG_DIR, "best_weights.h5")
@@ -46,12 +43,12 @@ def main():
 
     # Compile model 
     model.summary()
-    model.compile(optimizer=SGD(lr=2e-2, momentum=0.9, decay=0.0, nesterov=False), # SGD(lr=2e-2, momentum=0.9, decay=0.0, nesterov=False)
+    model.compile(optimizer=keras.optimizers.SGD(lr=2e-2, momentum=0.9, decay=0.0, nesterov=False),
                   loss='categorical_crossentropy',
                   loss_weights=[1.0], # The loss weight for model output without regularization loss. Set 0.0 due to validate only regularization factor.
                   metrics=['accuracy'])
 
-    # load init weights from pre-trained model
+    # Load initial weights from pre-trained model
     """
     if args.trans_learn:
         model.load_weights(MODEL_INIT_WEIGHTS_PATH, by_name=False)
@@ -59,29 +56,46 @@ def main():
     print("Produce training results in", LOG_DIR)
     """
 
-    '''
-    # debug code
-    print("model.total_loss :")
-    pprint(model.total_loss)
-    print("mdoel.losses :")
-    pprint(model.losses)
-    '''
+    # Set learning rate
+    learning_rates=[]
+    for i in range(5):
+        learning_rates.append(2e-2)
+    for i in range(50-5):
+        learning_rates.append(1e-2)
+    for i in range(100-50):
+        learning_rates.append(8e-3)
+    for i in range(150-100):
+        learning_rates.append(4e-3)
+    for i in range(200-150):
+        learning_rates.append(2e-3)
+    for i in range(300-200):
+        learning_rates.append(1e-3)
 
     # Set model callbacks
     callbacks = []
     callbacks.append(ModelCheckpoint(MODEL_WEIGHT_CKP_PATH, monitor='val_loss', save_best_only=True, save_weights_only=True))
     callbacks.append(CSVLogger(MODEL_TRAIN_LOG_CSV_PATH))
-    callbacks.append(MaskCustomCSVLogger(LOG_DIR+'/metrics.csv', model, dataset=(X_train, y_train, X_test, y_test)))
-    callbacks.append(MaskExponentialAlphaScheduler(init_alpha=1.0, growth_steps=10, growth_rate=10, clip_min=0, clip_max=100))
+    callbacks.append(LearningRateScheduler(lambda epoch: float(learning_rates[epoch])))
+
+    # data generator with data augumatation
+    datagen = keras.preprocessing.image.ImageDataGenerator(
+            featurewise_center=False, 
+            featurewise_std_normalization=False, 
+            rotation_range=0.0,
+            width_shift_range=0.2, 
+            height_shift_range=0.2, 
+            vertical_flip=False,
+            horizontal_flip=True)
+    datagen.fit(X_train)
 
     # Train model
-    history = model.fit(X_train, 
-                  y_train, 
-                  batch_size=128, 
-                  epochs=30,
-                  verbose=1,
-                  callbacks=callbacks,
-                  validation_data=(X_test, y_test))
+    history = model.fit_generator(
+              datagen.flow(X_train, y_train, batch_size=batch_size),
+              steps_per_epoch=len(X_train) / batch_size,
+              epochs=epochs,
+              verbose=1,
+              callbacks=callbacks,
+              validation_data=(X_test, y_test))
 
     # Validation
     val_loss, val_acc = model.evaluate(X_test, y_test, verbose=1)

@@ -2,7 +2,7 @@
 echo -e "\033[0;32mDeploying updates to GitHub...\033[0m"
 
 # Go To .git root directory
-cd ~/workspace/mnist-qc
+cd ~/workspace/keras-mobilenetv2-cifar10
 
 # Add all changes to git.
 git add .
