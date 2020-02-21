@@ -15,30 +15,30 @@ from load_data import load_cifar10
 
 
 # def main(args):
-def main():
+def main(args):
     input_shape=(32, 32, 3)
     num_classes=10
-    batch_size=128
-    epochs=30
+    batch_size=args.batch_size
+    epochs=args.epochs
     
     # Load cifar10 data
     (X_train, y_train),(X_test, y_test) = load_cifar10()
     
     # Define model
     model = MobileNetV2(input_shape=input_shape, nb_class=num_classes, include_top=True).build()
-    MODEL_NAME = "mobilenetv2" + datetime.now().strftime("%y-%m%d-%H%M%S")
+    MODEL_NAME = "mobilenetv2__" + datetime.now().strftime("%Y-%m%d-%H%M%S")
     
     # Path & Env. settings -------------------------------------------------------------
     LOG_DIR = os.path.join("./log", MODEL_NAME)
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR)
 
+    shutil.copyfile(os.path.join(os.getcwd(), 'train.sh'), os.path.join(LOG_DIR, 'train.sh'))
     shutil.copyfile(os.path.join(os.getcwd(), 'train.py'), os.path.join(LOG_DIR, 'train.py'))
     shutil.copyfile(os.path.join(os.getcwd(), 'models.py'), os.path.join(LOG_DIR, 'models.py'))
 
     MODEL_WEIGHT_CKP_PATH=os.path.join(LOG_DIR, "best_weights.h5")
     MODEL_TRAIN_LOG_CSV_PATH=os.path.join(LOG_DIR, "train_log.csv")
-    # MODEL_INIT_WEIGHTS_PATH=str(args.weights_path)
     # ----------------------------------------------------------------------------------
 
     # Compile model 
@@ -49,12 +49,11 @@ def main():
                   metrics=['accuracy'])
 
     # Load initial weights from pre-trained model
-    """
     if args.trans_learn:
-        model.load_weights(MODEL_INIT_WEIGHTS_PATH, by_name=False)
+        model.load_weights(str(args.weights_path), by_name=False)
         print("Load model init weights from", MODEL_INIT_WEIGHTS_PATH)
+
     print("Produce training results in", LOG_DIR)
-    """
 
     # Set learning rate
     learning_rates=[]
@@ -117,13 +116,10 @@ def main():
         f.write(json_string)    
 
 if __name__ == '__main__':
-    """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', help='model architecture.', choices=['cnn7', 'lenet5'], default='lenet5')
-    parser.add_argument('--type',  help='matrix type for custom layers.', choices=['base', 'qc', 'qcsc'], default='base', required=True)
+    parser.add_argument('--batch_size', default=128)
+    parser.add_argument('--epochs', default=100)
     parser.add_argument('--trans_learn', help='flag to design whether or not apply transfer learning.', action='store_true')
     parser.add_argument('--weights_path', help='file path to the initial model weights (.h5)', default='./log/base/best_weights.h5')
     args = parser.parse_args()
     main(args)
-    """
-    main()
