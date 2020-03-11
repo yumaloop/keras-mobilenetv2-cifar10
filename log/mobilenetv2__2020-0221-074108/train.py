@@ -18,8 +18,8 @@ from load_data import load_cifar10
 def main(args):
     input_shape=(32, 32, 3)
     num_classes=10
-    batch_size=int(args.batch_size)
-    epochs=int(args.epochs)
+    batch_size=args.batch_size
+    epochs=args.epochs
     
     # Load cifar10 data
     (X_train, y_train),(X_test, y_test) = load_cifar10()
